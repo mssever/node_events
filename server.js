@@ -10,7 +10,7 @@ const newsletter = new EventEmitter()
 const server = http.createServer(server_callback)
 server
   .on('connect', socket=>console.log(`Client ${socket.remoteAddress}:${socket.remotePort} connected to the server at ${socket.localAddress}:${socket.localPort}.`))
-  .on('connection', socket=>console.log('Connection established'))
+  .on('connection', socket=>console.log(`Connection established from ${socket.remoteAddress} port ${socket.remotePort} to ${socket.localAddress} port ${socket.localPort}`))
   .on('request', (req, res) => console.log(`Request received. URL: ${req.url}`))
   .on('upgrade', (req, socket, head) => console.log(`Upgrade requested. Header: ${head.toString()}`))
 server.listen(port, ()=>console.log(`Server listening on port ${port}...`))
@@ -39,7 +39,7 @@ function server_callback(req, res) {
     .on('data', chunk=>chunks.push(chunk))
     .on('end', ()=>{
       let data
-      console.log(Buffer.concat(chunks).toString())
+      let useHTML = false
       try {
         data = JSON.parse(Buffer.concat(chunks).toString())
       } catch(err) {
@@ -49,6 +49,7 @@ function server_callback(req, res) {
             name: qs.get('name'),
             email: qs.get('email')
           }
+          useHTML = true
         } catch(e) {
           data = {}
         }
@@ -67,8 +68,13 @@ function server_callback(req, res) {
             return message(res, 'error', 'data and name are required')
           }
           newsletter.emit('signup', data.name, data.email)
-          header(res, 200)
-          message(res, 'success', 'signup handed off to worker')
+          header(res, 200, useHTML ? 'text/html' : 'application/json')
+          let msg = 'signup handed off to worker'
+          if(useHTML) {
+            messagePlain(res, `<!DOCTYPE html><html><head><title>Success</title></head><body><h1>Success</h1><p>${msg}</p></body></html>`)
+          } else {
+            message(res, 'success', msg)
+          }
           break
         default:
           header(res, 404)
