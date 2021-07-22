@@ -8,12 +8,12 @@ import { EventEmitter } from 'events'
 const port = 8080
 const newsletter = new EventEmitter()
 const server = http.createServer(server_callback)
-server.listen(port, ()=>console.log(`Server listening on port ${port}...`))
 server
   .on('connect', socket=>console.log(`Client ${socket.remoteAddress}:${socket.remotePort} connected to the server at ${socket.localAddress}:${socket.localPort}.`))
   .on('connection', socket=>console.log('Connection established'))
   .on('request', (req, res) => console.log(`Request received. URL: ${req.url}`))
   .on('upgrade', (req, socket, head) => console.log(`Upgrade requested. Header: ${head.toString()}`))
+server.listen(port, ()=>console.log(`Server listening on port ${port}...`))
 
 function server_callback(req, res) {
   const chunks = []
