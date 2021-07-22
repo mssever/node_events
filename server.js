@@ -38,9 +38,28 @@ function server_callback(req, res) {
     })
     .on('data', chunk=>chunks.push(chunk))
     .on('end', ()=>{
-      let data = JSON.parse(Buffer.concat(chunks).toString())
+      let data
+      console.log(Buffer.concat(chunks).toString())
+      try {
+        data = JSON.parse(Buffer.concat(chunks).toString())
+      } catch(err) {
+        try {
+          let qs = new URLSearchParams(Buffer.concat(chunks).toString())
+          data = {
+            name: qs.get('name'),
+            email: qs.get('email')
+          }
+        } catch(e) {
+          data = {}
+        }
+      }
       
       switch (url_method) {
+        case '/newsletter_signup GET':
+          let contents = fs.readFileSync('signup.html').toString()
+          header(res, 200, 'text/html')
+          messagePlain(res, contents)
+          break
         case '/newsletter_signup POST':
           console.debug('Data is: ', data)
           if(data.name === undefined || data.email === undefined) {
@@ -61,7 +80,17 @@ function server_callback(req, res) {
 newsletter
   .on('signup', (name, email) => {
     console.debug('signup callback started')
-    fs.appendFile(path.join('data', 'db.csv'), `"${name}","${email}"`, err=>{
+    try {
+      fs.accessSync(path.join('data', 'db.csv'), fs.constants.F_OK | fs.constants.W_OK)
+    } catch(e) {
+      try {
+        fs.mkdirSync('data')
+        fs.writeFileSync(path.join('data', 'db.csv'), 'name,email\n')
+      } catch(err) {
+        return console.error(err)
+      }
+    }
+    fs.appendFile(path.join('data', 'db.csv'), `"${name}","${email}"\n`, err=>{
       if (err) return console.error(err)
       console.debug('file appended to')
     })
@@ -73,5 +102,10 @@ function header(res, status, contentType='application/json') {
 
 function message(res, status, data) {
   res.write(JSON.stringify({status, data}))
+  res.end()
+}
+
+function messagePlain(res, data) {
+  res.write(data)
   res.end()
 }
