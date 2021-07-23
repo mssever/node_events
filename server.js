@@ -11,7 +11,7 @@ const server = http.createServer(server_callback)
 server
   .on('connect', socket=>console.log(`Client ${socket.remoteAddress}:${socket.remotePort} connected to the server at ${socket.localAddress}:${socket.localPort}.`))
   .on('connection', socket=>console.log(`Connection established from ${socket.remoteAddress} port ${socket.remotePort} to ${socket.localAddress} port ${socket.localPort}`))
-  .on('request', (req, res) => console.log(`Request received. URL: ${req.url}`))
+  .on('request', (req, res) => console.log(`Request received. URL: ${req.url}. Method: ${req.method}`))
   .on('upgrade', (req, socket, head) => console.log(`Upgrade requested. Header: ${head.toString()}`))
 server.listen(port, ()=>console.log(`Server listening on port ${port}...`))
 
@@ -21,30 +21,24 @@ function server_callback(req, res) {
   const url_method = `${url} ${method}`
   res
     .on('error', err=>{
-      res.writeHead(500, {'Content-Type': 'application/json'})
-      res.write(JSON.stringify({
-        status: 'error',
-        message: `An error occured in the response:\n\n${err}`
-      }))
+      header(res, 500)
+      write(res, 'error', `An error occured in the response:\n\n${err}`)
     })
   
   req
     .on('error', err=>{
-      res.writeHead(500, {'Content-Type': 'application/json'})
-      res.write(JSON.stringify({
-        status: 'error',
-        message: `An error occured in the request:\n\n${err}`
-      }))
+      header(res, 500)
+      write(res, 'error', `An error occured in the request:\n\n${err}`)
     })
     .on('data', chunk=>chunks.push(chunk))
     .on('end', ()=>{
-      let data
+      let data = Buffer.concat(chunks).toString()
       let useHTML = false
       try {
-        data = JSON.parse(Buffer.concat(chunks).toString())
+        data = JSON.parse(data)
       } catch(err) {
         try {
-          let qs = new URLSearchParams(Buffer.concat(chunks).toString())
+          let qs = new URLSearchParams(data)
           data = {
             name: qs.get('name'),
             email: qs.get('email')
@@ -64,7 +58,7 @@ function server_callback(req, res) {
         case '/newsletter_signup POST':
           console.debug('Data is: ', data)
           if(data.name === undefined || data.email === undefined) {
-            header(res, 404)
+            header(res, 401)
             return message(res, 'error', 'data and name are required')
           }
           newsletter.emit('signup', data.name, data.email)
